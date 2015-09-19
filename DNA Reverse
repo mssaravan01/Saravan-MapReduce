@@ -1,0 +1,124 @@
+3b. A file contains the DNA sequence of people. Find all the people who have same or mirror image of DNAs.
+
+Input:
+“User1 ACGT”
+“User2 TGCA”
+“User3 ACG”
+“User4 ACGT”
+“User5 ACG”
+
+Output: 
+User1, User2, User4
+User3, User 5
+
+
+Mapper
+------
+package dnarev;
+
+
+import java.io.IOException;
+
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+
+public class StubMapper extends Mapper<Object, Text, Text, Text> {
+
+  @Override
+  public void map(Object key, Text value, Context context)
+      throws IOException, InterruptedException {
+    /*
+     * TODO implement
+     */
+	  
+	  String reverse="";
+	  String original="";
+	  String actualKey="";
+	  String[] words = value.toString().split("[ \t]+");
+	  original=new String(words[1]);
+	  int length = original.length();
+	  
+      for ( int i = length - 1 ; i >= 0 ; i-- )
+        reverse = reverse + original.charAt(i); 
+      	int min=original.compareTo(reverse);
+      	if (min<0)
+      	{
+      		actualKey=new String(original);
+      	}
+      	else
+      	{	
+      		actualKey=new String(reverse);
+      	}
+      	
+	  context.write(new Text(actualKey.toUpperCase()), new Text(words[0]));
+	  
+  }
+}
+
+Reducer
+--------
+package dnarev;
+
+
+import java.io.IOException;
+
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.mapreduce.Reducer;
+
+public class StubReducer extends Reducer<Text, Text, NullWritable, Text> {
+
+  @Override
+  public void reduce(Text key, Iterable<Text> values, Context context)
+      throws IOException, InterruptedException {
+	  
+	  String val2 = "";
+	  for(Text val:values){
+	  val2 += val.toString() + ",";
+	  }
+
+	  val2 = val2.substring(0, val2.length() - 1);
+	  context.write(NullWritable.get(),new Text(val2));
+  }
+}
+
+Driver
+-------
+package dnarev;
+
+
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class StubDriver {
+
+	public static void main(String[] args) throws Exception {
+		if (args.length != 2) {
+			System.out.printf("Usage: StubDriver <input dir> <output dir>\n");
+			System.exit(-1);
+		}
+		JobConf conf = new JobConf();
+		Job job = new Job(conf, "anagram");
+		job.setJarByClass(StubDriver.class);
+		
+		job.setMapperClass(StubMapper.class);
+		job.setReducerClass(StubReducer.class);
+		
+		job.setOutputKeyClass(Text.class);
+		job.setOutputValueClass(Text.class);
+		job.setMapOutputKeyClass(Text.class);
+		job.setMapOutputValueClass(Text.class);
+		
+		
+		FileInputFormat.addInputPath(job, new Path(args[0]));
+		FileOutputFormat.setOutputPath(job, new Path(args[1]));
+		
+		
+		boolean result = job.waitForCompletion(true);
+		System.exit(result ? 0 : 1);
+	}
+}
