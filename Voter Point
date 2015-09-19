@@ -1,0 +1,205 @@
+List1
+
+Voter Votee
+
+A     C
+
+A     B
+
+B     C
+
+C     F
+
+F     C
+
+List2
+
+Voter Worth
+
+A     5
+
+B     1
+
+C     11
+
+D     12
+
+Mapper1
+-------
+package vot;
+
+import java.io.IOException;
+
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+
+public class VCMap1 extends Mapper<Object, Text, Text, Text> {
+
+  @Override
+  public void map(Object key, Text value, Context context)
+      throws IOException, InterruptedException {
+    /*
+     * TODO implement
+     */
+	  String[] words = value.toString().split("[ \t]+");	  
+	  context.write(new Text(words[0]), new Text(words[1]));
+	
+  }
+}
+
+Reducer1
+---------
+package vot;
+
+import java.io.IOException;
+import java.util.Vector;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Reducer;
+
+public class VCRed1 extends Reducer<Text, Text, Text, LongWritable> {
+
+	  @Override
+	  public void reduce(Text key, Iterable<Text> values, Context context)
+	      throws IOException, InterruptedException {
+		  
+		  Vector v =new Vector();
+		  for(Text val:values){
+		  v.add(val.toString());
+		  }
+		  if (v.size()>1)
+		  {
+			  for(int i=0;i<v.size();i++){
+				  if (i>0)
+				  {
+					  context.write(new Text(v.get(i).toString()),new LongWritable(new Long(v.get(0).toString())));
+				  }
+			  }
+			   
+		  }
+		  
+	  }
+	}
+	
+	Mapper2
+	-------
+	package vot;
+
+import java.io.IOException;
+
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.mapreduce.Mapper;
+
+public class VCMap2 extends Mapper<Object, Text, Text, LongWritable> {
+
+  @Override
+  public void map(Object key, Text value, Context context)
+      throws IOException, InterruptedException {
+    /*
+     * TODO implement
+     */
+	  String[] words = value.toString().split("[ \t]+");	  
+	  context.write(new Text(words[0]), new LongWritable(new Long(words[1])));
+	
+  }
+}
+
+Reducer2
+---------
+package vot;
+
+import java.io.IOException;
+
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Reducer;
+
+public class VCRed2 extends Reducer<Text, LongWritable, Text, LongWritable> {
+
+	  @Override
+	  public void reduce(Text key, Iterable<LongWritable> values, Context context)
+	      throws IOException, InterruptedException {
+		  
+		  long sum = 0;
+		  for(LongWritable iw:values)
+		  {
+			  sum += iw.get();
+		  }
+		  context.write(key, new LongWritable(sum));
+	  }
+	}
+
+Driver
+------
+package vot;
+
+
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class VCDriver {
+
+	public static void main(String[] args) throws Exception {
+		if (args.length != 4) {
+			System.out.printf("Usage: StubDriver <input dir1> <input dir2> <output dir1> <output dir2>\n");
+			System.exit(-1);
+		}
+		JobConf conf = new JobConf();
+		//job1
+		Job job1 = new Job(conf, "VC1");
+		job1.setJarByClass(VCDriver.class);
+		
+		job1.setMapperClass(VCMap1.class);
+		job1.setReducerClass(VCRed1.class);
+		
+		job1.setOutputKeyClass(Text.class);
+		job1.setOutputValueClass(LongWritable.class);
+		job1.setMapOutputKeyClass(Text.class);
+		job1.setMapOutputValueClass(Text.class);
+		
+		
+		//job2
+		Job job2 = new Job(conf, "VC2");
+		job2.setJarByClass(VCDriver.class);
+		
+		job2.setMapperClass(VCMap1.class);
+		job2.setReducerClass(VCRed1.class);
+		
+		job2.setOutputKeyClass(Text.class);
+		job2.setOutputValueClass(LongWritable.class);
+		job2.setMapOutputKeyClass(Text.class);
+		job2.setMapOutputValueClass(LongWritable.class);
+		
+		//input output files for mapper1
+		FileInputFormat.addInputPath(job1, new Path(args[0]));
+		FileInputFormat.addInputPath(job1, new Path(args[1]));
+		FileOutputFormat.setOutputPath(job1, new Path(args[2]));
+		
+		//input output files for mapper2
+		FileInputFormat.addInputPath(job2, new Path(args[2]));
+		FileOutputFormat.setOutputPath(job1, new Path(args[3]));
+				
+		//execute second  job if first job completed with out error then execute job2 else exit
+		boolean result1 = job1.waitForCompletion(true);
+		
+		if (result1)
+		{
+			boolean result2 = job1.waitForCompletion(true);
+			System.exit(result2 ? 0 : 1);
+		}
+		else
+		{
+			System.exit(result1 ? 0 : 1);
+		}
+	}
+}
+
+
+
+
